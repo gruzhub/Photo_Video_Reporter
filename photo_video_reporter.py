@@ -1,37 +1,24 @@
 #Author: Grzegorz Kuboszek, 2018 
-import datetime, argparse
+import argparse, datetime
 from pathlib import Path
+from tabulate import tabulate
 from moviepy.editor import VideoFileClip
 
-# Get list of all files in every directory within the path - recursive searching
-def ListAllFiles(path):
-    files_list = []
-    for media_file in Path(path).rglob('*'):
-        if media_file.is_file():
-            files_list.append(str(media_file))
-
-    return files_list, len(files_list)
-
-#Get movie duraction and closing readers in case of exception
-def getDuration(filename):
-    movie = VideoFileClip(filename)
-    duration = movie.duration
-    movie.reader.close()
-    movie.audio.reader.close_proc()
-    return duration
-
-#Convert round size to MB or GB
-def convertSize(size):
-    size = size / 1024
-    if size > 1000:
-        size = size / 1024
-        sizeString = str(round(size,3)) + " GB"         
-    else:
-        sizeString = str(round(size,3)) + " MB"
+def ConvertSize(size_bytes: float):
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
     
-    return sizeString
+    size_kb = size_bytes / 1024
+    if size_kb < 1024:
+        return f"{round(size_kb, 3)} KB"
+    
+    size_mb = size_kb / 1024
+    if size_mb < 1024:
+        return f"{round(size_mb, 3)} MB"
+    
+    size_gb = size_mb / 1024
+    return f"{round(size_gb, 3)} GB"
 
-#Removing RAW without pair with JPG
 def removeRawWithoutPair(filesPath, rawExt):
     deleted = 0
     for filePath in filesPath:
@@ -50,63 +37,86 @@ def removeRawWithoutPair(filesPath, rawExt):
     return deleted
 
 def FileWalker(target):
-    photo_extensions = {".jpg", ".png", ".tiff", ".jpeg"}
+    photo_extensions = (".jpg", ".png", ".tiff", ".jpeg")
     photo_list = []
-    photo_count = 0
-    photo_size_bytes = 0.0
+    photo_size_bytes = 0
     
-    raw_extensions = {".rw2", ".dng", ".cr2", ".nef", ".arw", ".srf", ".crw", ".orf"}
+    raw_extensions = (".rw2", ".dng", ".cr2", ".nef", ".arw", ".srf", ".crw", ".orf")
     raw_list = []
-    raw_count = 0
-    raw_size_bytes = 0.0
+    raw_size_bytes = 0
     
-    video_extensions = {".mp4", ".mov", ".avi"}
+    video_extensions = (".mp4", ".mov", ".avi")
     video_list = []
-    video_count = 0
-    video_duration_seconds = 0.0
-    video_size_bytes = 0.0
+    video_duration_seconds = 0
+    video_size_bytes = 0
     
-    #excluded_extensions = {".txt", ".py", ".bat", ".doc", ".docx", ".xls", ".xlsx", ".pdf", ".zip", ".rar", ".7z", ".exe", ".dll", ".iso", ".img", ".log", ".ps1"}
     other_count = 0
-    other_size_bytes = 0.0
-    size_all_bytes = 0.0
+    other_size_bytes = 0
+    size_all_bytes = 0
 
     for file in Path(target).rglob('*'):
         if file.is_file():
-            print(f"Proessing file: {file}", end=' -> ')
+            print(f"{file}", end=' -> ')
             file_extension = Path(file).suffix.lower()
             file_size_bytes = Path(file).stat().st_size
             size_all_bytes += file_size_bytes
 
             if file_extension in photo_extensions:
                 print('PHOTO')
-                photo_count += 1
                 photo_size_bytes += file_size_bytes
                 photo_list.append(str(file))
             elif file_extension in raw_extensions:
                 print('RAW')
-                raw_count += 1
                 raw_size_bytes += file_size_bytes
                 raw_list.append(str(file))
             elif file_extension in video_extensions and not args.photo:
                 print('VIDEO')
-                video_count += 1
                 video_size_bytes += file_size_bytes
                 video_list.append(str(file))
                 try:
-                    video_clip = VideoFileClip(file)
+                    video_clip = VideoFileClip(str(file))
                     video_duration_seconds += video_clip.duration
-                    video_clip.reader.close()
+                    video_clip.close()
                 except Exception as ex:
-                    print(f"Error processing video file {file}: {ex}")    
+                    print(f"Error processing video file {file}: {ex}")
             else:
                 print('EXCLUDED')
                 other_count += 1
                 other_size_bytes += file_size_bytes
-            
 
+    return (photo_size_bytes, len(photo_list), photo_list), \
+            (raw_size_bytes, len(raw_list), raw_list), \
+            (video_size_bytes, len(video_list), round(video_duration_seconds, 0), video_list), \
+            (other_size_bytes, other_count)
 
-    return
+def CreateReport(target, photo_stats, raw_stats, video_stats, other_stats):
+    now = datetime.datetime.now()
+    report_name = f"{now.strftime('%Y-%m-%d_%H-%M-%S')}_MediaReport.txt"
+    try:
+        with open(target + "\\" + report_name, "w") as f:
+            f.write(f"Report creation time: {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Analyzed path: {target}\n")
+            f.write("-"*30 + "\n")
+            f.write(f"Photo count: {photo_stats[1]}\n")
+            f.write(f"Photo size: {ConvertSize(photo_stats[0])}")
+            f.write("\n" + "-"*30 + "\n")
+            f.write(f"RAW count: {raw_stats[1]}\n")
+            f.write(f"RAW size: {ConvertSize(raw_stats[0])}")
+            f.write("\n" + "-"*30 + "\n")
+            f.write(f"Movie clips: {video_stats[1]}\n")
+            f.write(f"Movie duration: {video_stats[2]} seconds\n")
+            f.write(f"Movie size: {ConvertSize(video_stats[0])}")
+            f.write("\n" + "-"*30 + "\n")
+            f.write(f"Other files count: {other_stats[1]}\n")
+            f.write(f"Other files size: {ConvertSize(other_stats[0])}")
+            f.write("\n" + "-"*30 + "\n")
+            f.write(f"Total size of all files: {ConvertSize(video_stats[0] + photo_stats[0] + raw_stats[0] + other_stats[0])}")
+            f.close()
+    except Exception as ex:
+        print(f"Error occured: {ex}")
+    
+    return 0
+
 ##############
 # MAIN SCRIPT
 ##############
@@ -116,57 +126,44 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--photo', action='store_true', help='Analyze ONLY photos')
     parser.add_argument('-v', '--video', action='store_true', help='Analyze ONLY videos')
     parser.add_argument('-d', '--dng', action='store_true', help='Convert RAW files to DNG format')
-    args = parser.parse_args()
-    
+    args = parser.parse_args()    
     START_TIME = datetime.datetime.now()
-    REPORT_NAME = f"{START_TIME.strftime('%Y-%m-%d_%H-%M-%S')}_MediaReport.txt"
     
     print("""
  _____ _       _          _____ _   _            _____                 _             
 |  _  | |_ ___| |_ ___   |  |  |_|_| |___ ___   | __  |___ ___ ___ ___| |_ ___ ___   
 |   __|   | . |  _| . |  |  |  | | . | -_| . |  |    -| -_| . | . |  _|  _| -_|  _|  
 |__|  |_|_|___|_| |___|   \\___/|_|___|___|___|  |__|__|___|  _|___|_| |_| |___|_|    
-                                                          |_|                                 
+                                                          |_|                        
 """)
-    if not args.target.isdir():
+    target_exist = Path(args.target).exists()
+    if not target_exist:
         print(f"Error: The specified path '{args.target}' is not a valid directory.")
         exit(1)
 
-    print(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Files analyzing in path: {args.target}")
-    #files_list, total_files = ListAllFiles(args.target)
-        
-    FileWalker(args.target)
-    print(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Total files found: {total_files}")
+    print(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Analyzing files in: {args.target}")
+    photo_stats, raw_stats, video_stats, other_stats = FileWalker(args.target)
+    
+    script_duration = datetime.datetime.now() - START_TIME
+    script_duration = str(script_duration).split('.')[0] # Remove miliseconds
+    
+    print(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Elepased time: {script_duration} | Total files found: {photo_stats[1] + raw_stats[1] + video_stats[1] + other_stats[1]} \n")
+    
+    headers = ["Type", "Files", "Size", "Duration (s)"]
+    tabulate_data = [
+        ["Photos", photo_stats[1], ConvertSize(photo_stats[0]), "-"],
+        ["RAW", raw_stats[1], ConvertSize(raw_stats[0]), "-"],
+        ["Video", video_stats[1], ConvertSize(video_stats[0]), round(video_stats[2], 2)],
+        ["Others", other_stats[1], ConvertSize(other_stats[0]), "-"] , 
+        ["TOTAL", photo_stats[1] + raw_stats[1] + video_stats[1] + other_stats[1], ConvertSize(photo_stats[0] + raw_stats[0] + video_stats[0] + other_stats[0]), round(video_stats[2], 2)]
+        ]
+    
+    print(tabulate(tabulate_data, headers=headers, tablefmt="github") + '\n')
 
+    print(f"Creating report in target directory {args.target}")
+    CreateReport(args.target, photo_stats, raw_stats, video_stats, other_stats)
     
     """
-
-    #Writing to file report
-    try:
-        f = open(FINALreportFile, "w")
-        f.write("Report creation time: " + finishTime.strftime("%Y-%m-%d %H:%M:%S"))
-        f.write("\nScript duration: " + str(scriptDuration))
-        f.write("\n")
-        f.write("="*30)
-        f.write("\nMovie clips: " + str(movieCount))
-        f.write("\nMovie duration: " + str(movieDuration))
-        f.write("\nMovie size: " + convertSize(movieSize))
-        f.write("\n")
-        f.write("="*30)
-        f.write("\nFoto counter: " + str(fotoCount))
-        f.write("\nFoto size: " + convertSize(fotoSize))
-        f.write("\nRAW counter: " + str(rawCount))
-        f.write("\nRAW size: " + convertSize(rawSize))
-        f.write("\n")
-        f.write("="*30)
-        f.write("\nUnknown files counter: " + str(otherCount))
-        f.write("\nUnknown files size: " + convertSize(otherSize))
-        f.write("\nSize of all files: " + convertSize(sizeAll))
-        f.close()
-
-    except Exception as ex:
-        print("[VID_COLLECTOR_REPORT] Exception occured during creating and writing file: " + str(ex))
-        exit()
 
     #Optional removing RAW without JPG pair
     option = input("Remove RAW files without JPG pair? [y/n]: ")
