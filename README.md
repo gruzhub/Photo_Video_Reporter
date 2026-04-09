@@ -1,6 +1,7 @@
 # Photo_Video_Reporter
- _____ _       _          _____ _   _            _____                 _             
-|  _  | |_ ___| |_ ___   |  |  |_|_| |___ ___   | __  |___ ___ ___ ___| |_ ___ ___   
-|   __|   | . |  _| . |  |  |  | | . | -_| . |  |    -| -_| . | . |  _|  _| -_|  _|  
-|__|  |_|_|___|_| |___|   \___/|_|___|___|___|  |__|__|___|  _|___|_| |_| |___|_|    
-                                                          |_|                        
+TO DO:
+- Integrate with DNG converter
+- Display orphand RAW files during first file scanning
+- Add scanning only for --photo and --video args
+- Remove videos shorter than 4 seconds
+- User input validation
