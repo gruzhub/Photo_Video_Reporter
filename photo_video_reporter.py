@@ -185,7 +185,7 @@ if __name__ == '__main__':
     #---------------
     print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Analyzing files in: {args.target}')
     photo_stats, raw_stats, video_stats, other_stats = FileWalker(args.target, PHOTO_EXTENSIONS, RAW_EXTENSIONS, VIDEO_EXTENSIONS)
-    print(f'{raw_stats[2]}')
+    
     #---------
     # SUMMARY
     #---------
@@ -231,7 +231,7 @@ if __name__ == '__main__':
 
 
         with open(args.target + '\\' + REPORT_NAME, 'a') as f:
-            f.write(f'\nConverted: {successful}, failed conversion: {failed}, TOTAL : {successful + failed}')
+            f.write(f'\nDNG conversion: {successful}, failed conversion: {failed}, TOTAL : {successful + failed}')
             f.close()
 
         remove_raw = input('Do you want to remove original RAW files after conversion? (y/n): ')
