@@ -9,7 +9,6 @@ Analyze and report on media files (photos, RAW files, videos) in a directory. Co
 - **Report Generation** - Create text report with file counts, sizes, and video duration
 - **RAW to DNG Conversion** - Batch convert RAW files using Adobe DNG Converter
 - **Cleanup** - Remove RAW files without corresponding JPG/PNG pairs
-- **Interactive Deletion** - Option to remove original RAW files after DNG conversion
 
 ## Supported Formats
 - **Photos:** .jpg, .jpeg, .png, .tiff
@@ -17,12 +16,12 @@ Analyze and report on media files (photos, RAW files, videos) in a directory. Co
 - **Video:** .mp4, .mov, .avi
 
 ## Options
- - `-t --target` | Directory to analyze (default: current dir)
- - `-d --dng` | Convert RAW to DNG format
- - `-r --remove-raw` | Remove RAW files without JPG pairs
+ - `-t --target` Directory to analyze (default: current dir)
+ - `-d --dng` Convert RAW to DNG format
+ - `-r --remove-raw` Remove RAW files without JPG pairs
 
-## 📋 TODO
-- Display orphaned RAW files during scanning
-- Add `--photo` and `--video` filters
-- Remove videos shorter than 4 seconds
-- Input validation
+## 📋 TO-DO
+[] Display orphaned RAW files during scanning
+[] Add `--photo` and `--video` filters
+[] Remove videos shorter than 4 seconds
+[] Input validation
