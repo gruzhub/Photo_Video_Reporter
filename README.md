@@ -23,5 +23,5 @@ Analyze and report on media files (photos, RAW files, videos) in a directory. Co
 ## TODO
 - [ ] Display orphaned RAW files during scanning
 - [ ] Add `--photo` and `--video` filters
-- [ ] Remove videos shorter than 4 seconds
-- [ ] Input validation
+- [x] Remove videos shorter than 4 seconds
+- [x] Input validation
