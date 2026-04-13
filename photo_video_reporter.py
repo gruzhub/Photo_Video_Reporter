@@ -1,8 +1,12 @@
 #Author: Grzegorz Kuboszek, 2018 
-import argparse, datetime
+import argparse
+import datetime
+import subprocess
 from pathlib import Path
 from tabulate import tabulate
 from moviepy.editor import VideoFileClip
+from tqdm import tqdm
+
 
 def ConvertSize(size_bytes: float):
     if size_bytes < 1024:
@@ -116,6 +120,35 @@ def CreateReport(REPORT_NAME, target, photo_stats, raw_stats, video_stats, other
     
     return 0
 
+def ConvertDNGConverter(DNG_CONVERTER_PATH, raw_list):
+    dng_converter_exist = Path(DNG_CONVERTER_PATH).exists()
+    if not dng_converter_exist:
+        print(f'Error: DNG Converter is not present at "{DNG_CONVERTER_PATH}"')
+        return False, False
+    
+    if not raw_list:
+        print("Warning: No RAW files to convert")
+        return (0,0)
+
+    successful = 0
+    failed = 0
+    
+    for raw in tqdm(raw_list, desc="Converting RAW files to DNG"):
+        command = [DNG_CONVERTER_PATH, '-c', raw]
+        try:
+            result = subprocess.run(command, capture_output=True, text=True)
+            if result.returncode == 0:
+                successful += 1
+            else:
+                failed += 1
+                print(f"Error converting {raw}: {result.stderr}")
+        except Exception as ex:
+            failed += 1
+            print(f"Error launching DNG Converter for {raw}: {ex}")
+    
+    print(f"\nConversion complete: {successful} succeeded, {failed} failed")
+    return (successful, failed)
+
 ##############
 # MAIN SCRIPT
 ##############
@@ -130,9 +163,10 @@ if __name__ == '__main__':
 
     START_TIME = datetime.datetime.now()
     REPORT_NAME = f'{START_TIME.strftime("%Y-%m-%d_%H-%M-%S")}_report.txt'
-    PHOTO_EXTENSIONS = (".jpg", ".png", ".tiff", ".jpeg")
-    RAW_EXTENSIONS = (".rw2", ".dng", ".cr2", ".nef", ".arw", ".srf", ".crw", ".orf")
-    VIDEO_EXTENSIONS = (".mp4", ".mov", ".avi")
+    PHOTO_EXTENSIONS = ('.jpg', '.png', '.tiff', '.jpeg')
+    RAW_EXTENSIONS = ('.rw2', '.dng', '.cr2', '.nef', '.arw', '.srf', '.crw', '.orf')
+    VIDEO_EXTENSIONS = ('.mp4', '.mov', '.avi')
+    DNG_CONVERTER_PATH = r'C:\Program Files\Adobe\Adobe DNG Converter\Adobe DNG Converter.exe'
 
     print("""
  _____ _       _          _____ _   _            _____                 _             
@@ -151,7 +185,7 @@ if __name__ == '__main__':
     #---------------
     print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Analyzing files in: {args.target}')
     photo_stats, raw_stats, video_stats, other_stats = FileWalker(args.target, PHOTO_EXTENSIONS, RAW_EXTENSIONS, VIDEO_EXTENSIONS)
-    
+    print(f'{raw_stats[2]}')
     #---------
     # SUMMARY
     #---------
@@ -188,4 +222,29 @@ if __name__ == '__main__':
             f.close()
         print(f'{deleted_counter} RAW files has been deleted, freed: {ConvertSize(deleted_size_bytes)}')
 
+    #---------------
+    # DNG CONVERTER
+    #---------------
+    if args.dng:
+        print(f'Launching DNG Converter', end=' -> ')
+        successful, failed = ConvertDNGConverter(DNG_CONVERTER_PATH, raw_stats[2])
+
+
+        with open(args.target + '\\' + REPORT_NAME, 'a') as f:
+            f.write(f'\nConverted: {successful}, failed conversion: {failed}, TOTAL : {successful + failed}')
+            f.close()
+
+        remove_raw = input('Do you want to remove original RAW files after conversion? (y/n): ')
+        if remove_raw.lower() == 'y':
+            removed = 0
+            for raw in tqdm(raw_stats[2], desc="Deleting original RAW files"):
+                try:
+                    Path(raw).unlink()
+                    removed += 1
+                except Exception as ex:
+                    print(f"Error deleting RAW file {raw}: {ex}")      
+            with open(args.target + '\\' + REPORT_NAME, 'a') as f:
+                f.write(f'\nRemoved original RAW files: {removed}')
+                f.close()
+    
     print('End of script, thank you for using Photo Video Reporter!')

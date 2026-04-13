@@ -1,2 +1,3 @@
 moviepy
 tabulate
+tqdm
