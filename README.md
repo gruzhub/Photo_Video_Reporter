@@ -21,7 +21,7 @@ Analyze and report on media files (photos, RAW files, videos) in a directory. Co
  - `-r --remove-raw` Remove RAW files without JPG pairs
 
 ## TODO
-- [ ] Display orphaned RAW files during scanning
-- [ ] Add `--photo` and `--video` filters
+- [x] Display orphaned RAW files during scanning
+- [x] Add `--photo` and `--video` filters
 - [ ] Remove videos shorter than 4 seconds
 - [ ] Input validation
