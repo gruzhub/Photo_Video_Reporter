@@ -16,6 +16,9 @@ Analyze and report on media files (photos, RAW files, videos) in a directory. Co
 - **Video:** .mp4, .mov, .avi
 
 ## Arguments
+ - `-h --help` Display help message
  - `-t --target` Directory to analyze (default: current dir)
  - `-d --dng` Convert RAW to DNG format
  - `-r --remove-raw` Remove RAW files without JPG pairs
+ - `-p --photo` Analyze photos and raw files ONLY
+ - `-v --video` Analyze videos ONLY

@@ -7,7 +7,7 @@ from tabulate import tabulate
 from moviepy.editor import VideoFileClip
 from tqdm import tqdm
 
-def ConvertSize(size_bytes: float):
+def ConvertSize(size_bytes: int):
     if size_bytes < 1024:
         return f"{size_bytes} B"
     
