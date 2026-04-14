@@ -165,7 +165,8 @@ if __name__ == '__main__':
 |__|  |_|_|___|_| |___|   \\___/|_|___|___|___|  |__|__|___|  _|___|_| |_| |___|_|   
                                                           |_|                        
 """)
-    target_exist = Path(args.target.strip()).exists()
+    args.target = args.target.strip()
+    target_exist = Path(args.target).exists()
     if not target_exist:
         print(f'Error: The specified path {args.target} is not a valid directory.')
         exit(1)
@@ -224,21 +225,22 @@ if __name__ == '__main__':
             f.write(f'\nDNG conversion: {successful}, failed conversion: {failed}, TOTAL : {successful + failed}')
             f.close()
 
-        while True:
-            remove_raw = input('Do you want to remove original RAW files after conversion? (y/n): ').strip().lower()
-            if remove_raw in ('y', 'n'):
-                break
+        if successful > 0:
+            while True:
+                remove_raw = input('Do you want to remove original RAW files after conversion? (y/n): ').strip().lower()
+                if remove_raw in ('y', 'n'):
+                    break
 
-        if remove_raw == 'y':
-            removed = 0
-            for raw in tqdm(raw_stats[2], desc="Deleting original RAW files", ascii=" #"):
-                try:
-                    Path(raw).unlink()
-                    removed += 1
-                except Exception as ex:
-                    print(f"Error deleting RAW file {raw}: {ex}")
-            with open(args.target + '\\' + REPORT_NAME, 'a') as f:
-                f.write(f'\nRemoved original RAW files: {removed}')
-                f.close()
+            if remove_raw == 'y':
+                removed = 0
+                for raw in tqdm(raw_stats[2], desc="Deleting original RAW files", ascii=" #"):
+                    try:
+                        Path(raw).unlink()
+                        removed += 1
+                    except Exception as ex:
+                        print(f"Error deleting RAW file {raw}: {ex}")
+                with open(args.target + '\\' + REPORT_NAME, 'a') as f:
+                    f.write(f'\nRemoved original RAW files: {removed}')
+                    f.close()
     
     print('End of script! I was created to serve you.')
