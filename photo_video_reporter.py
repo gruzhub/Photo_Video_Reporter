@@ -7,7 +7,6 @@ from tabulate import tabulate
 from moviepy.editor import VideoFileClip
 from tqdm import tqdm
 
-
 def ConvertSize(size_bytes: float):
     if size_bytes < 1024:
         return f"{size_bytes} B"
@@ -45,7 +44,7 @@ def RemoveRawWithoutPair(raw_list, PHOTO_EXTENSIONS):
 
     return (deleted_counter, deleted_size_bytes)
 
-def FileWalker(target, PHOTO_EXTENSIONS, RAW_EXTENSIONS, VIDEO_EXTENSIONS):
+def FileWalker(target, PHOTO_EXTENSIONS, RAW_EXTENSIONS, VIDEO_EXTENSIONS, type_of_analysis):
     photo_list = []
     photo_size_bytes = 0
     raw_list = []
@@ -57,23 +56,20 @@ def FileWalker(target, PHOTO_EXTENSIONS, RAW_EXTENSIONS, VIDEO_EXTENSIONS):
     other_size_bytes = 0
     size_all_bytes = 0
 
-    for file in Path(target).rglob('*'):
+    all_files = list(Path(target).rglob('*'))
+    for file in tqdm(all_files, desc="Analyzing files", ascii=" #"):
         if file.is_file():
-            print(f"{file}", end=' -> ')
             file_extension = Path(file).suffix.lower()
             file_size_bytes = Path(file).stat().st_size
             size_all_bytes += file_size_bytes
 
-            if file_extension in PHOTO_EXTENSIONS:
-                print('PHOTO')
+            if (file_extension in PHOTO_EXTENSIONS) and (type_of_analysis in ('photos only', 'all files')):
                 photo_size_bytes += file_size_bytes
                 photo_list.append(str(file))
-            elif file_extension in RAW_EXTENSIONS:
-                print('RAW')
+            elif (file_extension in RAW_EXTENSIONS) and (type_of_analysis in ('photos only', 'all files')):
                 raw_size_bytes += file_size_bytes
                 raw_list.append(str(file))
-            elif file_extension in VIDEO_EXTENSIONS:
-                print('VIDEO')
+            elif (file_extension in VIDEO_EXTENSIONS) and (type_of_analysis in ('videos only', 'all files')):
                 video_size_bytes += file_size_bytes
                 video_list.append(str(file))
                 try:
@@ -82,38 +78,23 @@ def FileWalker(target, PHOTO_EXTENSIONS, RAW_EXTENSIONS, VIDEO_EXTENSIONS):
                     video_clip.close()
                 except Exception as ex:
                     print(f"Error processing video file {file}: {ex}")
-            else:
-                print('EXCLUDED')
+                    other_count += 1
+                    other_size_bytes += file_size_bytes
+            elif type_of_analysis in ('all files'):
                 other_count += 1
                 other_size_bytes += file_size_bytes
-
+    
     return (photo_size_bytes, len(photo_list), photo_list), \
-            (raw_size_bytes, len(raw_list), raw_list), \
-            (video_size_bytes, len(video_list), round(video_duration_seconds, 0), video_list), \
-            (other_size_bytes, other_count)
+    (raw_size_bytes, len(raw_list), raw_list), \
+    (video_size_bytes, len(video_list), round(video_duration_seconds, 0), video_list), \
+    (other_size_bytes, other_count) 
 
-def CreateReport(REPORT_NAME, target, photo_stats, raw_stats, video_stats, other_stats):
+def CreateReport(REPORT_NAME, target, script_duration, report_str, type_of_analysis):
     now = datetime.datetime.now()
 
     try:
         with open(target + "\\" + REPORT_NAME, "w") as f:
-            f.write(f"Report creation time: {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Analyzed path: {target}\n")
-            f.write("-"*30 + "\n")
-            f.write(f"Photo count: {photo_stats[1]}\n")
-            f.write(f"Photo size: {ConvertSize(photo_stats[0])}")
-            f.write("\n" + "-"*30 + "\n")
-            f.write(f"RAW count: {raw_stats[1]}\n")
-            f.write(f"RAW size: {ConvertSize(raw_stats[0])}")
-            f.write("\n" + "-"*30 + "\n")
-            f.write(f"Movie clips: {video_stats[1]}\n")
-            f.write(f"Movie duration: {video_stats[2]} seconds\n")
-            f.write(f"Movie size: {ConvertSize(video_stats[0])}")
-            f.write("\n" + "-"*30 + "\n")
-            f.write(f"Other files count: {other_stats[1]}\n")
-            f.write(f"Other files size: {ConvertSize(other_stats[0])}")
-            f.write("\n" + "-"*30 + "\n")
-            f.write(f"Total size of all files: {ConvertSize(video_stats[0] + photo_stats[0] + raw_stats[0] + other_stats[0])}")
+            f.write(f"Report creation time: {now.strftime('%Y-%m-%d %H:%M:%S')}\nTarget directory: {target}\nType of analysis: {type_of_analysis}\n{report_str}\nAnalyzing duration: {script_duration}\n")
             f.close()
     except Exception as ex:
         print(f"Error occured: {ex}")
@@ -155,11 +136,20 @@ def ConvertDNGConverter(DNG_CONVERTER_PATH, raw_list):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Analyze media files')
     parser.add_argument('-t', '--target', type=str, default='.', help='Path to analyze (default: current directory)')
-    #parser.add_argument('-p', '--photo', action='store_true', help='Analyze ONLY photos')
-    #parser.add_argument('-v', '--video', action='store_true', help='Analyze ONLY videos')
+    parser.add_argument('-p', '--photo', action='store_true', help='Analyze ONLY photos')
+    parser.add_argument('-v', '--video', action='store_true', help='Analyze ONLY videos')
     parser.add_argument('-d', '--dng', action='store_true', help='Convert RAW files to DNG format')
     parser.add_argument('-r', '--remove-raw', action='store_true', help='Remove RAW files without JPG pair')
     args = parser.parse_args()
+
+    if (args.photo and args.video):
+        type_of_analysis = 'all files'
+    elif args.photo:
+        type_of_analysis = 'photos only'
+    elif args.video:
+        type_of_analysis = 'videos only'
+    else:
+        type_of_analysis = 'all files'
 
     START_TIME = datetime.datetime.now()
     REPORT_NAME = f'{START_TIME.strftime("%Y-%m-%d_%H-%M-%S")}_report.txt'
@@ -175,25 +165,25 @@ if __name__ == '__main__':
 |__|  |_|_|___|_| |___|   \\___/|_|___|___|___|  |__|__|___|  _|___|_| |_| |___|_|   
                                                           |_|                        
 """)
-    target_exist = Path(args.target).exists()
+    target_exist = Path(args.target.strip()).exists()
     if not target_exist:
-        print(f'Error: The specified path "{args.target}" is not a valid directory.')
+        print(f'Error: The specified path {args.target} is not a valid directory.')
         exit(1)
 
     #---------------
     # FILE ANALYSIS
     #---------------
-    print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Analyzing files in: {args.target}')
-    photo_stats, raw_stats, video_stats, other_stats = FileWalker(args.target, PHOTO_EXTENSIONS, RAW_EXTENSIONS, VIDEO_EXTENSIONS)
-    
+    print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Target directory to scan: {args.target}, type of analysis: {type_of_analysis}')
+    photo_stats, raw_stats, video_stats, other_stats = FileWalker(args.target, PHOTO_EXTENSIONS, RAW_EXTENSIONS, VIDEO_EXTENSIONS, type_of_analysis)
+
     #---------
     # SUMMARY
     #---------
     script_duration = datetime.datetime.now() - START_TIME
     script_duration = str(script_duration).split('.')[0] # Remove miliseconds
     
-    print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Elapsed time: {script_duration} | Total files found: {photo_stats[1] + raw_stats[1] + video_stats[1] + other_stats[1]} \n')
-    
+    print(f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Elapsed time: {script_duration}')
+
     headers = ['Type', 'Files', 'Size', 'Duration (s)']
     tabulate_data = [
         ['Photos', photo_stats[1], ConvertSize(photo_stats[0]), "-"],
@@ -203,13 +193,14 @@ if __name__ == '__main__':
         ['TOTAL', photo_stats[1] + raw_stats[1] + video_stats[1] + other_stats[1], ConvertSize(photo_stats[0] + raw_stats[0] + video_stats[0] + other_stats[0]), round(video_stats[2], 2)]
         ]
     
-    print(tabulate(tabulate_data, headers=headers, tablefmt="github") + '\n')
+    report_str = tabulate(tabulate_data, headers=headers, tablefmt="github") + '\n'
+    print(report_str)
 
     #-----------------
     # REPORT CREATION
     #-----------------
     print(f'Creating report in target directory {args.target}', end=' -> ')
-    CreateReport(REPORT_NAME, args.target, photo_stats, raw_stats, video_stats, other_stats)
+    CreateReport(REPORT_NAME, args.target, script_duration, report_str, type_of_analysis)
     print('DONE')
 
     #-------------
@@ -229,22 +220,25 @@ if __name__ == '__main__':
         print(f'Launching DNG Converter', end=' -> ')
         successful, failed = ConvertDNGConverter(DNG_CONVERTER_PATH, raw_stats[2])
 
-
         with open(args.target + '\\' + REPORT_NAME, 'a') as f:
             f.write(f'\nDNG conversion: {successful}, failed conversion: {failed}, TOTAL : {successful + failed}')
             f.close()
 
-        remove_raw = input('Do you want to remove original RAW files after conversion? (y/n): ')
-        if remove_raw.lower() == 'y':
+        while True:
+            remove_raw = input('Do you want to remove original RAW files after conversion? (y/n): ').strip().lower()
+            if remove_raw in ('y', 'n'):
+                break
+
+        if remove_raw == 'y':
             removed = 0
-            for raw in tqdm(raw_stats[2], desc="Deleting original RAW files"):
+            for raw in tqdm(raw_stats[2], desc="Deleting original RAW files", ascii=" #"):
                 try:
                     Path(raw).unlink()
                     removed += 1
                 except Exception as ex:
-                    print(f"Error deleting RAW file {raw}: {ex}")      
+                    print(f"Error deleting RAW file {raw}: {ex}")
             with open(args.target + '\\' + REPORT_NAME, 'a') as f:
                 f.write(f'\nRemoved original RAW files: {removed}')
                 f.close()
     
-    print('End of script, thank you for using Photo Video Reporter!')
+    print('End of script! I was created to serve you.')
